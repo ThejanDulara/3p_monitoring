@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 import io
 from datetime import datetime, time
 from flask import Flask, request, jsonify, send_file
