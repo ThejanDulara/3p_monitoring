@@ -4,7 +4,12 @@ import pickle
 import time
 
 REDIS_URL = os.getenv("REDIS_URL")
+
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL is not set")
+
 r = redis.from_url(REDIS_URL, decode_responses=False)
+
 
 EXTRACT_TTL = 60 * 60        # 1 hour
 RESULT_TTL = 60 * 60 * 2    # 2 hours
