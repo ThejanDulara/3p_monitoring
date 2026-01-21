@@ -31,6 +31,38 @@ def list_valid_sheets(xlsx_path: str):
     names = [n for n in wb.sheetnames if n != "Final KPIs"]
     return names
 
+def normalize_month_year(raw):
+    """
+    Accepts:
+    - 'Jan - 2026'
+    - datetime / Excel date (e.g. 01/02/2026)
+    - '01/02/2026'
+    Returns:
+    - 'Jan - 2026'
+    """
+    if raw is None:
+        return None
+
+    # Case 1: Excel date / datetime
+    if isinstance(raw, (datetime, pd.Timestamp)):
+        return raw.strftime("%b - %Y")
+
+    raw_str = str(raw).strip()
+
+    # Case 2: Already like 'Jan - 2026'
+    if "-" in raw_str and any(m in raw_str.lower() for m in [
+        "jan", "feb", "mar", "apr", "may", "jun",
+        "jul", "aug", "sep", "oct", "nov", "dec"
+    ]):
+        return raw_str
+
+    # Case 3: '01/02/2026' or similar
+    try:
+        d = datetime.strptime(raw_str, "%d/%m/%Y")
+        return d.strftime("%b - %Y")
+    except Exception:
+        return None
+
 
 def extract_schedule_grid(xlsx_path: str, sheet_name: str, channel: str, advertiser: str) -> pd.DataFrame:
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
@@ -68,7 +100,8 @@ def extract_schedule_grid(xlsx_path: str, sheet_name: str, channel: str, adverti
         d_num = sheet.cell(row=date_num_row, column=c).value
         if d_num is None:
             break
-        m_year = get_merged_value(sheet, month_row, c)  # e.g. "Jan - 2026"
+        raw_month = get_merged_value(sheet, month_row, c)
+        m_year = normalize_month_year(raw_month)
         date_cols[c] = f"{d_num} {m_year}"  # e.g. "21 Jan - 2026"
 
     rows = []
