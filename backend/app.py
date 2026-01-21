@@ -36,16 +36,20 @@ def make_json_safe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def df_preview(df: pd.DataFrame, limit=200):
+def df_preview(df: pd.DataFrame, limit=None):
     df = make_json_safe(df)
     cols = list(df.columns)
-    rows = df.head(limit).fillna("").to_dict(orient="records")
+
+    if limit is None:
+        rows = df.fillna("").to_dict(orient="records")
+    else:
+        rows = df.head(limit).fillna("").to_dict(orient="records")
+
     return {
         "columns": cols,
         "rows": rows,
         "totalRows": int(len(df))
     }
-
 
 def to_excel_bytes_from_df(df: pd.DataFrame):
     out = io.BytesIO()
