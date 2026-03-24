@@ -1,11 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DataTable from "../components/DataTable.jsx";
-import { downloadMonitoring } from "../api.js";
+import { downloadMonitoring, downloadFullNilson } from "../api.js";
 
 export default function MonitorResultsPage() {
   const nav = useNavigate();
-  const jobId = sessionStorage.getItem("monitor_job") || "";
+  const currentJobId = sessionStorage.getItem("monitor_current_job") || "";
+  const sessionId = sessionStorage.getItem("monitor_session_id") || "";
+  
+  const jobs = useMemo(() => {
+    const raw = sessionStorage.getItem("monitor_jobs");
+    return raw ? JSON.parse(raw) : [];
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const summary = useMemo(() => {
     const raw = sessionStorage.getItem("monitor_summary");
@@ -17,17 +27,23 @@ export default function MonitorResultsPage() {
     return raw ? JSON.parse(raw) : null;
   }, []);
 
-  const nilsonPreview = useMemo(() => {
-    const raw = sessionStorage.getItem("monitor_nilson");
-    return raw ? JSON.parse(raw) : null;
-  }, []);
+  function proceedNextChannel() {
+    nav("/extract");
+  }
+
+  function handleGoHome() {
+    sessionStorage.removeItem("monitor_session_id");
+    sessionStorage.removeItem("monitor_jobs");
+    sessionStorage.removeItem("monitor_current_job");
+    nav("/");
+  }
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Monitoring Results</h1>
 
-        {!jobId ? (
+        {!currentJobId ? (
           <div style={styles.error}>
             No monitoring job found. Please process again.
           </div>
@@ -57,26 +73,64 @@ export default function MonitorResultsPage() {
           >
             Go Back
           </button>
+          
           <button
             style={styles.primaryButton}
-            onClick={() => downloadMonitoring(jobId, "unmatched")}
-            disabled={!jobId}
+            onClick={proceedNextChannel}
           >
-            Download Unmatched CSV
+            Proceed to next channel
           </button>
+          
           <button
-            style={styles.secondaryButton}
-            onClick={() => downloadMonitoring(jobId, "nilson")}
-            disabled={!jobId}
+            style={{ ...styles.primaryButton, backgroundColor: '#805ad5' }}
+            onClick={() => downloadFullNilson(sessionId)}
+            disabled={!sessionId}
           >
-            Download Nilson CSV
+            Download Full Nilson CSV
           </button>
+          
           <button
-              style={styles.backButton}
-              onClick={() => nav("/")}
-            >
-              Go to Home
-            </button>
+            style={styles.backButton}
+            onClick={handleGoHome}
+          >
+            End Session & Go Home
+          </button>
+        </div>
+
+        <div style={styles.divider} />
+        
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Session Channels</h3>
+          <div style={styles.tableContainer}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead style={{ backgroundColor: '#edf2f7', color: '#4a5568', borderBottom: '2px solid #e2e8f0' }}>
+                <tr>
+                  <th style={{ padding: '12px 16px' }}>Channel</th>
+                  <th style={{ padding: '12px 16px' }}>RO Number</th>
+                  <th style={{ padding: '12px 16px' }}>Unmatched</th>
+                  <th style={{ padding: '12px 16px' }}>Matched</th>
+                  <th style={{ padding: '12px 16px' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job, idx) => (
+                  <tr key={job.jobId} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: idx % 2 === 0 ? 'white' : '#f7fafc' }}>
+                    <td style={{ padding: '12px 16px' }}>{job.channel}</td>
+                    <td style={{ padding: '12px 16px' }}>{job.roNumber}</td>
+                    <td style={{ padding: '12px 16px' }}>{job.summary?.totalUnmatched || 0}</td>
+                    <td style={{ padding: '12px 16px' }}>{job.summary?.totalMatchedInNilson || 0}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button style={{ ...styles.smallActionBtn, backgroundColor: '#4299e1' }} onClick={() => downloadMonitoring(job.jobId, "unmatched")}>Unmatched CSV</button>
+                          <button style={{ ...styles.smallActionBtn, backgroundColor: '#4299e1' }} onClick={() => downloadMonitoring(job.jobId, "all")}>All Data CSV</button>
+                          <button style={{ ...styles.smallActionBtn, backgroundColor: '#48bb78' }} onClick={() => downloadMonitoring(job.jobId, "nilson")}>Nilson CSV</button>
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div style={styles.divider} />
@@ -85,15 +139,6 @@ export default function MonitorResultsPage() {
           <h3 style={styles.sectionTitle}>Unmatched Spots</h3>
           <div style={styles.tableContainer}>
             <DataTable preview={unmatchedPreview} />
-          </div>
-        </div>
-
-        <div style={styles.divider} />
-
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Nilson Report with RO Number </h3>
-          <div style={styles.tableContainer}>
-            <DataTable preview={nilsonPreview} />
           </div>
         </div>
       </div>
@@ -219,6 +264,16 @@ const styles = {
     border: '1px solid #e2e8f0',
     borderRadius: '6px',
     overflow: 'hidden',
+  },
+  smallActionBtn: {
+    padding: '6px 12px',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'opacity 0.2s ease',
   },
 };
 

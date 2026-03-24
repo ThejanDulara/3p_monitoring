@@ -1,29 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { runMonitoring } from "../api.js";
 
 export default function MonitorPage() {
   const nav = useNavigate();
   const token = sessionStorage.getItem("extract_token") || "";
+  const channel = sessionStorage.getItem("extract_channel") || "Unknown Channel";
+  const sessionId = sessionStorage.getItem("monitor_session_id") || "";
 
   const [nilsonFile, setNilsonFile] = useState(null);
   const [roNumber, setRoNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   async function onProcess() {
     setErr("");
     if (!token) return setErr("No extracted schedule found. Please extract schedule first.");
-    if (!nilsonFile) return setErr("Please upload Nilson report.");
+    if (!sessionId && !nilsonFile) return setErr("Please upload Nilson report.");
     if (!roNumber.trim()) return setErr("Please enter RO Number.");
 
     setLoading(true);
     try {
-      const res = await runMonitoring({ token, nilsonFile, roNumber: roNumber.trim() });
-      sessionStorage.setItem("monitor_job", res.job_id);
+      const res = await runMonitoring({ 
+        token, 
+        nilsonFile, 
+        roNumber: roNumber.trim(),
+        sessionId,
+        channel
+      });
+      
+      sessionStorage.setItem("monitor_session_id", res.session_id);
+      
+      const newJob = {
+        channel: channel,
+        roNumber: roNumber.trim(),
+        jobId: res.job_id,
+        summary: res.summary
+      };
+      
+      const existingJobsRaw = sessionStorage.getItem("monitor_jobs");
+      const existingJobs = existingJobsRaw ? JSON.parse(existingJobsRaw) : [];
+      existingJobs.push(newJob);
+      
+      sessionStorage.setItem("monitor_jobs", JSON.stringify(existingJobs));
+      sessionStorage.setItem("monitor_current_job", res.job_id);
       sessionStorage.setItem("monitor_summary", JSON.stringify(res.summary));
       sessionStorage.setItem("monitor_unmatched", JSON.stringify(res.unmatchedPreview));
-      sessionStorage.setItem("monitor_nilson", JSON.stringify(res.nilsonPreview));
       nav("/monitor/results");
     } catch (e) {
       setErr(String(e));
@@ -42,15 +69,23 @@ export default function MonitorPage() {
         <div style={styles.row}>
           <div style={styles.column}>
             <label style={styles.label}>Upload Nilson Report</label>
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => setNilsonFile(e.target.files?.[0] || null)}
-              style={styles.input}
-            />
-            <div style={styles.smallText}>
-              Upload exactly as downloaded from Nilson (no changes).
-            </div>
+            {sessionId ? (
+              <div style={{ ...styles.input, backgroundColor: '#e2e8f0', color: '#4a5568' }}>
+                Reusing Nilson report uploaded in this session.
+              </div>
+            ) : (
+              <>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => setNilsonFile(e.target.files?.[0] || null)}
+                  style={styles.input}
+                />
+                <div style={styles.smallText}>
+                  Upload exactly as downloaded from Nilson (no changes).
+                </div>
+              </>
+            )}
           </div>
 
           <div style={styles.column}>

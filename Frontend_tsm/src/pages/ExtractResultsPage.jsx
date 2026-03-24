@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DataTable from "../components/DataTable.jsx";
 import { downloadExtracted } from "../api.js";
@@ -6,6 +6,11 @@ import { downloadExtracted } from "../api.js";
 export default function ExtractResultsPage() {
   const nav = useNavigate();
   const token = sessionStorage.getItem("extract_token") || "";
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const preview = useMemo(() => {
     const raw = sessionStorage.getItem("extract_preview");
@@ -88,9 +93,17 @@ export default function ExtractResultsPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.card}>
-          <h1 style={styles.title}>
-            Extracted Schedule (Row-level Spots)
-          </h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+            <h1 style={{ ...styles.title, marginBottom: 0 }}>
+              Extracted Schedule (Row-level Spots)
+            </h1>
+            <button
+              style={{ ...styles.btnPrimary, padding: "8px 16px", fontSize: "14px" }}
+              onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+            >
+              Go Down
+            </button>
+          </div>
 
           {!token && (
             <div style={styles.errorText}>
@@ -128,6 +141,7 @@ export default function ExtractResultsPage() {
               Proceed to Monitoring
             </button>
           </div>
+          <div ref={bottomRef} />
         </div>
       </div>
     </div>

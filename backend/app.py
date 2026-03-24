@@ -6,7 +6,7 @@ import pandas as pd
 
 from extractor import extract_schedule_grid
 from monitoring import find_unmatched_records
-from storage import put_extract, get_extract, put_result, get_result
+from storage import put_extract, get_extract, put_result, get_result, create_session, get_session, update_session
 
 app = Flask(__name__)
 CORS(app)
@@ -28,7 +28,8 @@ def make_json_safe(df: pd.DataFrame) -> pd.DataFrame:
         # object columns that may contain time objects
         else:
             df[col] = df[col].apply(
-                lambda x: x.strftime("%H:%M:%S") if isinstance(x, time)
+                lambda x: x if pd.isnull(x)
+                else x.strftime("%H:%M:%S") if isinstance(x, time)
                 else x.strftime("%Y-%m-%d %H:%M:%S") if isinstance(x, datetime)
                 else x
             )
@@ -145,39 +146,60 @@ def download_extracted(token):
 def monitor():
     token = request.form.get("token", "")
     ro_number = request.form.get("ro_number", "")
+    session_id = request.form.get("session_id", "")
+    channel = request.form.get("channel", "Unknown Channel")
     f = request.files.get("nilson")
 
-    if not token or not ro_number or not f:
-        return jsonify({"error": "token, ro_number, nilson file are required"}), 400
+    if not token or not ro_number:
+        return jsonify({"error": "token, ro_number are required"}), 400
 
     item = get_extract(token)
     if not item:
         return jsonify({"error": "invalid or expired token"}), 404
 
     schedule_df = item["df"].copy()
-    nilson_df = pd.read_excel(f)
+    
+    if session_id:
+        sess = get_session(session_id)
+        if not sess:
+            return jsonify({"error": "invalid or expired session"}), 404
+        original_nilson_df = sess["original_nilson_df"]
+        full_nilson_df = sess["full_nilson_df"]
+    else:
+        if not f:
+            return jsonify({"error": "nilson file required for new session"}), 400
+        original_nilson_df = pd.read_excel(f)
+        full_nilson_df = original_nilson_df.copy()
+        if "RO Number" not in full_nilson_df.columns:
+            full_nilson_df["RO Number"] = ""
+        session_id = create_session(original_nilson_df, full_nilson_df)
 
-    unmatched_df, updated_nilson_df = find_unmatched_records(
-        schedule_df, nilson_df, ro_number
+    unmatched_df, all_df, job_nilson_df = find_unmatched_records(
+        schedule_df, original_nilson_df.copy(), ro_number
     )
 
-    matched_count = int(
-        (updated_nilson_df.get("RO Number") == ro_number).sum()
-    ) if "RO Number" in updated_nilson_df.columns else 0
+    mask = job_nilson_df["RO Number"] == ro_number
+    full_nilson_df.loc[mask, "RO Number"] = ro_number
+    update_session(session_id, full_nilson_df)
+
+    matched_count = int(mask.sum())
 
     summary = {
+        "channel": channel,
+        "roNumber": ro_number,
         "totalScheduleSpots": int(len(schedule_df)),
         "totalUnmatched": int(len(unmatched_df)),
         "totalMatchedInNilson": matched_count
     }
 
-    job_id = put_result(unmatched_df, updated_nilson_df, summary=summary)
+    job_id = put_result(unmatched_df, all_df, job_nilson_df, summary=summary)
 
     return jsonify({
+        "session_id": session_id,
         "job_id": job_id,
         "summary": summary,
         "unmatchedPreview": df_preview(unmatched_df),
-        "nilsonPreview": df_preview(updated_nilson_df)
+        "nilsonPreview": df_preview(job_nilson_df)
     })
 
 
@@ -190,17 +212,35 @@ def download_monitor_files(job_id, which):
     if which == "unmatched":
         df = item["unmatched"]
         name = "unmatched_data.csv"
+    elif which == "all":
+        df = item["all"]
+        name = "all_schedule_data.csv"
     elif which == "nilson":
         df = item["nilson"]
         name = "nilson.csv"
     else:
-        return jsonify({"error": "which must be unmatched or nilson"}), 400
+        return jsonify({"error": "which must be unmatched, all, or nilson"}), 400
 
     buf = io.BytesIO()
     df.to_csv(buf, index=False, encoding="utf-8-sig")
     buf.seek(0)
 
     return send_file(buf, as_attachment=True, download_name=name, mimetype="text/csv")
+
+
+@app.get("/api/monitor/download/session/<session_id>/full_nilson")
+def download_session_full_nilson(session_id):
+    sess = get_session(session_id)
+    if not sess:
+        return jsonify({"error": "invalid or expired session"}), 404
+        
+    df = sess["full_nilson_df"]
+    
+    buf = io.BytesIO()
+    df.to_csv(buf, index=False, encoding="utf-8-sig")
+    buf.seek(0)
+
+    return send_file(buf, as_attachment=True, download_name="full_nilson.csv", mimetype="text/csv")
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSheets, extractSchedule } from "../api.js";
 
-const CHANNELS = ["Tv - Derana", "Tv - Swarnavahini", "Tv - Hiru TV"];
-const ADVERTISERS = ["Seylan Bank", "Singer", "cargills" , "Lanka Lubricants Ltd"];
+const CHANNELS = ["Tv - Derana", "Tv - Swarnavahini", "Tv - Hiru TV", "Tv - Siyatha Tv", "Tv - Sirasa TV", "Tv - Shakthi TV"]
+const ADVERTISERS = ["Seylan Bank", "Singer", "cargills", "Lanka Lubricants Ltd"];
 
 export default function ExtractPage() {
   const nav = useNavigate();
@@ -41,6 +41,7 @@ export default function ExtractPage() {
       const res = await extractSchedule({ file, sheet, channel, advertiser });
       sessionStorage.setItem("extract_token", res.token);
       sessionStorage.setItem("extract_preview", JSON.stringify(res.preview));
+      sessionStorage.setItem("extract_channel", channel);
       nav("/extract/results");
     } catch (e) {
       setErr(String(e));

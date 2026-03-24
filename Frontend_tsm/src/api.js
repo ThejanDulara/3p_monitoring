@@ -31,11 +31,13 @@ export function downloadExtracted(token) {
   window.open(`${API_BASE}/api/extract/download/${token}`, "_blank");
 }
 
-export async function runMonitoring({ token, nilsonFile, roNumber }) {
+export async function runMonitoring({ token, nilsonFile, roNumber, sessionId, channel }) {
   const fd = new FormData();
   fd.append("token", token);
   fd.append("ro_number", roNumber);
-  fd.append("nilson", nilsonFile);
+  fd.append("channel", channel || "Unknown Channel");
+  if (sessionId) fd.append("session_id", sessionId);
+  if (nilsonFile) fd.append("nilson", nilsonFile);
 
   const res = await fetch(`${API_BASE}/api/monitor`, {
     method: "POST",
@@ -44,6 +46,11 @@ export async function runMonitoring({ token, nilsonFile, roNumber }) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export function downloadFullNilson(sessionId) {
+  window.open(`${API_BASE}/api/monitor/download/session/${sessionId}/full_nilson`, "_blank");
+}
+
 
 export function downloadMonitoring(jobId, which) {
   window.open(`${API_BASE}/api/monitor/download/${jobId}/${which}`, "_blank");
