@@ -1,6 +1,17 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function Header() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleEndSession = () => {
+    sessionStorage.clear();
+    navigate('/');
+  };
+
+  const showEndSession = location.pathname !== '/start' && location.pathname !== '/';
+
   return (
     <header style={styles.header}>
       {/* Left: Tagline */}
@@ -16,6 +27,16 @@ function Header() {
 
       {/* Right: App context */}
       <div style={styles.right}>
+        {showEndSession && (
+          <button 
+            onClick={handleEndSession}
+            style={styles.endSessionBtn}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#fed7d7'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#fff5f5'}
+          >
+            End Session / Start Over
+          </button>
+        )}
         <span style={styles.environment}>Third-Party Monitoring Tool</span>
         <span style={styles.year}>2026</span>
       </div>
@@ -80,6 +101,18 @@ const styles = {
   },
   year: {
     fontWeight: '500',
+  },
+  endSessionBtn: {
+    padding: '6px 12px',
+    backgroundColor: '#fff5f5',
+    color: '#c53030',
+    border: '1px solid #fc8181',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s ease',
+    marginRight: '8px',
   }
 };
 
