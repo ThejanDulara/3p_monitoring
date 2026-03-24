@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getSheets, extractSchedule } from "../api.js";
 
 const CHANNELS = ["Tv - Derana", "Tv - Swarnavahini", "Tv - Hiru TV", "Tv - Siyatha Tv", "Tv - Sirasa TV", "Tv - Shakthi TV"]
-const ADVERTISERS = ["Seylan Bank", "Singer", "cargills", "Lanka Lubricants Ltd"];
+const ADVERTISERS = ["Seylan Bank", "Singer", "cargills", "Lanka Lubricants Ltd", "Janashakthi Group"]
 
 export default function ExtractPage() {
   const nav = useNavigate();
