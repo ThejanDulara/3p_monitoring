@@ -241,7 +241,7 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
                         consumed_idx = match_idx
                         data_n.at[match_idx, "RO Number"] = ro_number
                         matched_indices.add(match_idx)
-                        matched_row_data = " _ ".join(match_row.astype(str).values)
+                        matched_row_data = " _ ".join(str(val) for val in match_row.values)
                         break
 
             # update state
