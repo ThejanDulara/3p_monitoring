@@ -24,7 +24,7 @@ def is_special_program(prog_val):
     if pd.isna(prog_val):
         return False
     p = str(prog_val).strip().lower()
-    return p == "tag" or p.startswith("sponsorship")
+    return p == "tag" or p.startswith(("sponsorship", "spon. of", "spon of"))
 
 
 def create_time_range(row):
