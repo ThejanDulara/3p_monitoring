@@ -87,7 +87,7 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
 
     data_n["RO Number"] = ""
 
-    columns = list(data.columns) + ["Match_Status", "Matched_Row_Data"]
+    columns = list(data.columns) + ["Aired_Status", "Aired_Row_Data"]
     all_records = pd.DataFrame(columns=columns)
 
     # --- schedule preprocessing (Time split, Date normalize) ---
@@ -265,15 +265,15 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
         row_dict = row.to_dict()
         
         if row_early_status[i] is not None:
-            row_dict["Match_Status"] = row_early_status[i]
-            row_dict["Matched_Row_Data"] = ""
+            row_dict["Aired_Status"] = row_early_status[i]
+            row_dict["Aired_Row_Data"] = ""
             all_records_list.append(row_dict)
             continue
             
         if row_match_idx[i] is not None:
             matched_counts[spot_key] += 1
-            row_dict["Match_Status"] = "Matched"
-            row_dict["Matched_Row_Data"] = row_match_data[i]
+            row_dict["Aired_Status"] = "Aired"
+            row_dict["Aired_Row_Data"] = row_match_data[i]
         else:
             current_found = matched_counts[spot_key]
             required_matches = spot_counts_data.get(spot_key, 1)
@@ -283,21 +283,21 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
             
             if current_found == 0:
                 if total_in_range > 0:
-                    row_dict["Match_Status"] = f"Found 0 available matches, but {total_in_range} records existed in range {start_range}-{end_range} (consumed by other spots)"
+                    row_dict["Aired_Status"] = f"Found 0 available matches, but {total_in_range} records existed in range {start_range}-{end_range} (consumed by other spots)"
                 else:
                     if is_special_program(row["Program"]):
-                        row_dict["Match_Status"] = f"No matching available theme or time found in range {start_range} to {end_range}"
+                        row_dict["Aired_Status"] = f"No matching available theme or time found in range {start_range} to {end_range}"
                     else:
-                        row_dict["Match_Status"] = f"No matching program time found in range {start_range} to {end_range}"
+                        row_dict["Aired_Status"] = f"No matching program time found in range {start_range} to {end_range}"
             else:
                 needed_more = required_matches - current_found
-                row_dict["Match_Status"] = f"Found only {current_found} matches, needed {needed_more} more"
-            row_dict["Matched_Row_Data"] = ""
+                row_dict["Aired_Status"] = f"Found only {current_found} matches, needed {needed_more} more"
+            row_dict["Aired_Row_Data"] = ""
             
         all_records_list.append(row_dict)
 
     all_records = pd.DataFrame(all_records_list, columns=columns)
-    unmatched_records = all_records[all_records["Match_Status"] != "Matched"].copy()
+    unmatched_records = all_records[all_records["Aired_Status"] != "Aired"].copy()
 
     return unmatched_records, all_records, data_n
 

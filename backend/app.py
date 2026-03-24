@@ -209,15 +209,20 @@ def download_monitor_files(job_id, which):
     if not item:
         return jsonify({"error": "invalid or expired job"}), 404
 
+    summary = item.get("summary", {})
+    channel = summary.get("channel", "Unknown_Channel").replace(" ", "_")
+    ro_number = summary.get("roNumber", "Unknown_RO").replace(" ", "_")
+    prefix = f"{ro_number}_{channel}"
+
     if which == "unmatched":
         df = item["unmatched"]
-        name = "unmatched_data.csv"
+        name = f"{prefix}_unmatched_data.csv"
     elif which == "all":
         df = item["all"]
-        name = "all_schedule_data.csv"
+        name = f"{prefix}_all_schedule_data.csv"
     elif which == "nilson":
         df = item["nilson"]
-        name = "nilson.csv"
+        name = f"{prefix}_nilson.csv"
     else:
         return jsonify({"error": "which must be unmatched, all, or nilson"}), 400
 

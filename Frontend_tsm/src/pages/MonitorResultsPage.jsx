@@ -60,7 +60,7 @@ export default function MonitorResultsPage() {
               <div style={styles.statValue}>{summary.totalUnmatched}</div>
             </div>
             <div style={styles.statCard}>
-              <div style={styles.statLabel}>Matched Spots in Nilson</div>
+              <div style={styles.statLabel}>Aired Spots in Nilson</div>
               <div style={styles.statValue}>{summary.totalMatchedInNilson}</div>
             </div>
           </div>
@@ -108,7 +108,7 @@ export default function MonitorResultsPage() {
                   <th style={{ padding: '12px 16px' }}>Channel</th>
                   <th style={{ padding: '12px 16px' }}>RO Number</th>
                   <th style={{ padding: '12px 16px' }}>Unmatched</th>
-                  <th style={{ padding: '12px 16px' }}>Matched</th>
+                  <th style={{ padding: '12px 16px' }}>Aired</th>
                   <th style={{ padding: '12px 16px' }}>Actions</th>
                 </tr>
               </thead>
