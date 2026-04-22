@@ -290,8 +290,7 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
                     else:
                         row_dict["Aired_Status"] = f"No matching program time found in range {start_range} to {end_range}"
             else:
-                needed_more = required_matches - current_found
-                row_dict["Aired_Status"] = f"Found only {current_found} matches, needed {needed_more} more"
+                row_dict["Aired_Status"] = "Not Aired"
             row_dict["Aired_Row_Data"] = ""
             
         all_records_list.append(row_dict)
