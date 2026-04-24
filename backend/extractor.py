@@ -112,7 +112,7 @@ def extract_schedule_grid(xlsx_path: str, sheet_name: str, channel: str, adverti
         if not prog:
             continue
         prog_s = str(prog).lower()
-        if any(x in prog_s for x in ["total", "benefit", "bonus", "commercial"]):
+        if any(x in prog_s for x in ["total", "benefit", "bonus"]):
             continue
 
         for col_idx, date_str in date_cols.items():

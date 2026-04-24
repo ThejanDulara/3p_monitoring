@@ -61,10 +61,16 @@ def create_time_range(row):
 
         start_range = (start_dt - timedelta(minutes=7)).time()
         
+        channel_name = str(row.get("Channel", "")).strip().lower()
+        special_channels = ["tv - derana", "tv - swarnavahini", "tv - hiru tv", "tv - sirasa tv"]
+
         if start_time.hour >= 22:
             end_range = (end_dt + timedelta(minutes=20)).time()
         else:
-            end_range = (end_dt + timedelta(minutes=12)).time()
+            if channel_name in special_channels:
+                end_range = (end_dt + timedelta(minutes=12)).time()
+            else:
+                end_range = (end_dt + timedelta(minutes=7)).time()
 
         return start_range, end_range
 
