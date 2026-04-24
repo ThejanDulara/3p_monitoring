@@ -35,12 +35,13 @@ def get_extract(token):
     return pickle.loads(raw)
 
 
-def put_result(unmatched_df, all_df, nilson_df, summary=None):
+def put_result(unmatched_df, all_df, nilson_df, setoff_df=None, summary=None):
     job_id = f"result:{int(time.time()*1000)}"
     payload = {
         "unmatched": unmatched_df,
         "all": all_df,
         "nilson": nilson_df,
+        "setoff": setoff_df,
         "summary": summary or {}
     }
     r.setex(job_id, RESULT_TTL, pickle.dumps(payload))

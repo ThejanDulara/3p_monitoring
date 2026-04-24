@@ -93,8 +93,7 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
 
     data_n["RO Number"] = ""
 
-    columns = list(data.columns) + ["Aired_Status", "Aired_Row_Data"]
-    all_records = pd.DataFrame(columns=columns)
+    data_n["RO Number"] = ""
 
     # --- schedule preprocessing (Time split, Date normalize) ---
     if "Time" in data.columns:
@@ -141,6 +140,9 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
             data[col] = data[col].astype(str).str.strip().str.lower()
         if col in data_n.columns:
             data_n[col] = data_n[col].astype(str).str.strip().str.lower()
+
+    columns = list(data.columns) + ["Aired_Status", "Aired_Row_Data"]
+    all_records = pd.DataFrame(columns=columns)
     
     if "Dur" in data.columns:
         data["Dur"] = data["Dur"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -305,4 +307,103 @@ def find_unmatched_records(schedule_df: pd.DataFrame, nilson_df: pd.DataFrame, r
     unmatched_records = all_records[all_records["Aired_Status"] != "Aired"].copy()
 
     return unmatched_records, all_records, data_n
+
+
+def process_set_off(unmatched_records: pd.DataFrame, data_n: pd.DataFrame, ro_number: str):
+    print(f"\n--- Starting Set Off processing for {len(unmatched_records)} unmatched records ---")
+    
+    # Ensure Date_key exists on nilson data (it's only added inside find_unmatched_records)
+    if "Date_key" not in data_n.columns:
+        if all(c in data_n.columns for c in ["Dd", "Mn", "Yr"]):
+            data_n["Date"] = pd.to_datetime(
+                data_n[["Dd", "Mn", "Yr"]].astype(str).agg("-".join, axis=1),
+                format="%d-%m-%Y", errors="coerce"
+            )
+        data_n["Date_key"] = pd.to_datetime(data_n["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    # Ensure RO Number column exists
+    if "RO Number" not in data_n.columns:
+        data_n["RO Number"] = ""
+
+    # Normalise key columns to lowercase for matching (same as find_unmatched_records)
+    for col in ["Advertiser", "Channel"]:
+        if col in data_n.columns:
+            data_n[col] = data_n[col].astype(str).str.strip().str.lower()
+    if "Dur" in data_n.columns:
+        data_n["Dur"] = data_n["Dur"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
+    setoff_records_list = []
+    
+    for _, row in unmatched_records.iterrows():
+        row_dict = row.to_dict()
+        original_date = pd.to_datetime(row["Date_key"], format="%Y-%m-%d", errors="coerce")
+        if pd.isna(original_date):
+            row_dict["Aired_Status"] = "Invalid date for Set Off"
+            row_dict["Set_off_row_data"] = ""
+            row_dict.pop("Aired_Row_Data", None)
+            setoff_records_list.append(row_dict)
+            continue
+            
+        matched_idx = None
+        matched_data_str = ""
+        
+        start_range, end_range = create_time_range(row)
+        if start_range is None or end_range is None:
+            row_dict["Aired_Status"] = "Invalid time range for Set Off"
+            row_dict["Set_off_row_data"] = ""
+            row_dict.pop("Aired_Row_Data", None)
+            setoff_records_list.append(row_dict)
+            continue
+            
+        is_special = is_special_program(row["Program"])
+        
+        for day_offset in range(1, 11):
+            check_date = original_date + timedelta(days=day_offset)
+            check_date_str = check_date.strftime("%Y-%m-%d")
+            
+            matched_records = data_n[
+                (data_n["RO Number"] == "") &
+                (data_n["Advertiser"] == row["Advertiser"]) &
+                (data_n["Channel"] == row["Channel"]) &
+                (data_n["Date_key"] == check_date_str) &
+                (data_n["Dur"] == row["Dur"])
+            ]
+            
+            if is_special:
+                if "Advt_Theme" in matched_records.columns:
+                    matched_records = matched_records[
+                        matched_records["Advt_Theme"].astype(str).str.strip().isin(
+                            ["Tag", "-Tr", "-BB", " Com Break", "-Extro", "-Intro", " Time Check"]
+                        )
+                    ]
+                else:
+                    matched_records = matched_records.iloc[0:0]
+            
+            for m_idx, m_row in matched_records.iterrows():
+                time_to_check = m_row["Advt_time"] if ("Advt_time" in m_row and pd.notnull(m_row["Advt_time"])) else m_row["Prog_time"]
+                if check_time_in_range(time_to_check, start_range, end_range):
+                    matched_idx = m_idx
+                    matched_data_str = " _ ".join(str(val) for val in m_row.values)
+                    data_n.at[m_idx, "RO Number"] = "Set_Off_" + ro_number
+                    break
+            
+            if matched_idx is not None:
+                break
+                
+        if matched_idx is not None:
+            row_dict["Aired_Status"] = "Set Off"
+            row_dict["Set_off_row_data"] = matched_data_str
+        else:
+            date_from = (original_date + timedelta(days=1)).strftime("%d/%m/%Y")
+            date_to = (original_date + timedelta(days=5)).strftime("%d/%m/%Y")
+            row_dict["Aired_Status"] = f"No match in date range ({date_from} to {date_to})"
+            row_dict["Set_off_row_data"] = ""
+            
+        row_dict.pop("Aired_Row_Data", None)
+        setoff_records_list.append(row_dict)
+        
+    setoff_df = pd.DataFrame(setoff_records_list)
+    setoff_count = len(setoff_df[setoff_df["Aired_Status"] == "Set Off"]) if not setoff_df.empty else 0
+    print(f"--- This step is done processing set off. Found {setoff_count} matches. ---\n")
+    return setoff_df, data_n
 

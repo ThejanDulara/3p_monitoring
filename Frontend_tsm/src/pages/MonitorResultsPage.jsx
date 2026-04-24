@@ -63,6 +63,14 @@ export default function MonitorResultsPage() {
               <div style={styles.statLabel}>Aired Spots in Nilson</div>
               <div style={styles.statValue}>{summary.totalMatchedInNilson}</div>
             </div>
+            <div style={styles.statCard}>
+              <div style={styles.statLabel}>Set Off Spots</div>
+              <div style={styles.statValue}>{summary.totalSetOff || 0}</div>
+            </div>
+            <div style={styles.statCard}>
+              <div style={styles.statLabel}>Final Unmatched</div>
+              <div style={styles.statValue}>{summary.finalUnmatched ?? summary.totalUnmatched}</div>
+            </div>
           </div>
         ) : null}
 
@@ -109,6 +117,8 @@ export default function MonitorResultsPage() {
                   <th style={{ padding: '12px 16px' }}>RO Number</th>
                   <th style={{ padding: '12px 16px' }}>Unmatched</th>
                   <th style={{ padding: '12px 16px' }}>Aired</th>
+                  <th style={{ padding: '12px 16px' }}>Set Off</th>
+                  <th style={{ padding: '12px 16px' }}>Final Unmatched</th>
                   <th style={{ padding: '12px 16px' }}>Actions</th>
                 </tr>
               </thead>
@@ -119,10 +129,13 @@ export default function MonitorResultsPage() {
                     <td style={{ padding: '12px 16px' }}>{job.roNumber}</td>
                     <td style={{ padding: '12px 16px' }}>{job.summary?.totalUnmatched || 0}</td>
                     <td style={{ padding: '12px 16px' }}>{job.summary?.totalMatchedInNilson || 0}</td>
+                    <td style={{ padding: '12px 16px' }}>{job.summary?.totalSetOff || 0}</td>
+                    <td style={{ padding: '12px 16px' }}>{job.summary?.finalUnmatched ?? job.summary?.totalUnmatched ?? 0}</td>
                     <td style={{ padding: '12px 16px' }}>
                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <button style={{ ...styles.smallActionBtn, backgroundColor: '#4299e1' }} onClick={() => downloadMonitoring(job.jobId, "unmatched")}>Unmatched CSV</button>
                           <button style={{ ...styles.smallActionBtn, backgroundColor: '#4299e1' }} onClick={() => downloadMonitoring(job.jobId, "all")}>All Data CSV</button>
+                          <button style={{ ...styles.smallActionBtn, backgroundColor: '#ed8936' }} onClick={() => downloadMonitoring(job.jobId, "setoff")}>Set off CSV</button>
                           <button style={{ ...styles.smallActionBtn, backgroundColor: '#48bb78' }} onClick={() => downloadMonitoring(job.jobId, "nilson")}>Nilson CSV</button>
                        </div>
                     </td>

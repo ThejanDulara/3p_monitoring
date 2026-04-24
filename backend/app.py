@@ -5,7 +5,7 @@ from flask_cors import CORS
 import pandas as pd
 
 from extractor import extract_schedule_grid
-from monitoring import find_unmatched_records
+from monitoring import find_unmatched_records, process_set_off
 from storage import put_extract, get_extract, put_result, get_result, create_session, get_session, update_session
 
 app = Flask(__name__)
@@ -75,6 +75,37 @@ def to_excel_bytes_from_df(df: pd.DataFrame):
 
     out.seek(0)
     return out
+
+
+def _nilson_to_excel(df: pd.DataFrame):
+    """Export nilson DataFrame as xlsx. Rows where RO Number starts with 'Set_Off_'
+    are written with red font so they are easy to identify."""
+    import openpyxl
+    from openpyxl.styles import Font
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Nilson")
+        ws = writer.book["Nilson"]
+
+        # Find the RO Number column index (1-based)
+        ro_col_idx = None
+        if "RO Number" in df.columns:
+            ro_col_idx = df.columns.get_loc("RO Number") + 1  # +1 for openpyxl 1-based
+
+        red_font = Font(color="FF0000", bold=True)
+
+        for row_idx, row_vals in enumerate(df.itertuples(index=False), start=2):  # row 1 is header
+            ro_val = str(getattr(row_vals, "RO_Number", "") or "")  # pandas renames spaces to _
+            if ro_col_idx is not None:
+                # read directly from the cell to avoid attribute name mangling
+                ro_val = str(ws.cell(row=row_idx, column=ro_col_idx).value or "")
+            if ro_val.startswith("Set_Off_"):
+                for cell in ws[row_idx]:
+                    cell.font = red_font
+
+    buf.seek(0)
+    return buf
 
 
 # ---------- routes ----------
@@ -180,19 +211,35 @@ def monitor():
 
     mask = job_nilson_df["RO Number"] == ro_number
     full_nilson_df.loc[mask, "RO Number"] = ro_number
+    
+    # Run set-off logic
+    setoff_df, updated_full_nilson = process_set_off(unmatched_df, full_nilson_df.copy(), ro_number)
+    
+    # update full_nilson_df with the set-off matched rows
+    setoff_mask = updated_full_nilson["RO Number"].str.startswith("Set_Off_", na=False)
+    full_nilson_df.loc[setoff_mask, "RO Number"] = updated_full_nilson.loc[setoff_mask, "RO Number"]
+
+    # Also propagate Set_Off_ into job_nilson_df so the per-job Nilson CSV shows them
+    common_idx = job_nilson_df.index.intersection(updated_full_nilson[setoff_mask].index)
+    job_nilson_df.loc[common_idx, "RO Number"] = updated_full_nilson.loc[common_idx, "RO Number"]
+
     update_session(session_id, full_nilson_df)
 
     matched_count = int(mask.sum())
+    setoff_count = int(len(setoff_df[setoff_df["Aired_Status"] == "Set Off"])) if not setoff_df.empty else 0
+    final_unmatched = int(len(setoff_df[setoff_df["Aired_Status"] != "Set Off"])) if not setoff_df.empty else len(unmatched_df)
 
     summary = {
         "channel": channel,
         "roNumber": ro_number,
         "totalScheduleSpots": int(len(schedule_df)),
         "totalUnmatched": int(len(unmatched_df)),
-        "totalMatchedInNilson": matched_count
+        "totalMatchedInNilson": matched_count,
+        "totalSetOff": setoff_count,
+        "finalUnmatched": final_unmatched
     }
 
-    job_id = put_result(unmatched_df, all_df, job_nilson_df, summary=summary)
+    job_id = put_result(unmatched_df, all_df, job_nilson_df, setoff_df, summary=summary)
 
     return jsonify({
         "session_id": session_id,
@@ -223,8 +270,13 @@ def download_monitor_files(job_id, which):
     elif which == "nilson":
         df = item["nilson"]
         name = f"{prefix}_nilson.csv"
+    elif which == "setoff":
+        df = item.get("setoff")
+        if df is None:
+            return jsonify({"error": "No set off data"}), 404
+        name = f"{prefix}_set_off_data.csv"
     else:
-        return jsonify({"error": "which must be unmatched, all, or nilson"}), 400
+        return jsonify({"error": "which must be unmatched, all, nilson, or setoff"}), 400
 
     buf = io.BytesIO()
     df.to_csv(buf, index=False, encoding="utf-8-sig")
@@ -238,9 +290,9 @@ def download_session_full_nilson(session_id):
     sess = get_session(session_id)
     if not sess:
         return jsonify({"error": "invalid or expired session"}), 404
-        
+
     df = sess["full_nilson_df"]
-    
+
     buf = io.BytesIO()
     df.to_csv(buf, index=False, encoding="utf-8-sig")
     buf.seek(0)
